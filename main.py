@@ -41,12 +41,10 @@ def rocchioFeedBack(queryVector, rankingList):
 	original = np.array(queryVector)
 
 	newVec = (a * original) + (b * Related/relatedNumber) - (c * NotRelated/relatedNumber)
-	print newVec
 	return newVec
 
 
 def searchBigram(queryTerms, queryID, isFeedBack):
-	print queryTerms
 	rankingList = {}
 	queryVector = []
 	queryTermsIndex = 0
