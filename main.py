@@ -146,7 +146,7 @@ def main():
 	parseFileList = parseXML.readFileList(args.m)
 	avgDoc_len = parseXML.getAvgDocLength(parseFileList)
 	vocabList = parseXML.readVocab(args.m)
-	# parseXML.saveToPureInvertedFile("model")
+	parseXML.saveToPureInvertedFile(args.m)
 	invertedFileDict = parseXML.parsePureInvertedFile()
 	queryFile(args.i, args.r, args.o)
 	
