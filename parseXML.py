@@ -5,6 +5,7 @@ import sys
 import time
 import mmap
 import json
+import string
 
 
 def readVocab(modelDir):
@@ -30,7 +31,7 @@ def readFileList(modelDir):
 			docInfo = {} # dictionary to save date
 			tree = ET.parse(path)
 			root = tree.getroot()
-			docInfo['id'] = root.find('./doc/id').text
+			docInfo['id'] = root.find('./doc/id').text.lower()
 			docInfo['date'] = root.find('./doc/date').text
 			if not root.find('./doc/title').text:
 				docInfo['title'] = ""

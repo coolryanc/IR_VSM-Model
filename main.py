@@ -1,15 +1,55 @@
 # -*- coding: UTF-8 -*-  
 
 import xml.etree.ElementTree as ET
-import numpy as numpy
+from operator import itemgetter
+import numpy as np
 import math
 import sys
 import parseXML
 import json
+import time
+import argparse
 
-def searchBigram(queryTerms):
+def rocchioFeedBack(queryVector, rankingList):
+
+	lengthOfList = len(rankingList)
+	relatedNumber = int(lengthOfList * 0.15)
+	scoreDict = {}
+	useToSum = rankingList
+	# Sort large to small
+	for docId in rankingList:
+		scoreDict[docId] = sum(useToSum[docId])
+	sortedDict = list(sorted(scoreDict.items(), key=itemgetter(1), reverse=True))
+	
+	# related docs
+	SumOfRelatedVec = np.array([0] * len(queryVector))
+	for docId in sortedDict[:relatedNumber]: #docId ('id':value)
+		SumOfRelatedVec =  SumOfRelatedVec + np.array(rankingList[docId[0]])
+
+	# not related docs
+	SumOfNotRelatedVec = np.array([0] * len(queryVector))
+	for docId in sortedDict[-relatedNumber:]:
+		SumOfNotRelatedVec =  SumOfNotRelatedVec + np.array(rankingList[docId[0]])
+
+	# Three parameters
+	a = 0.9
+	b = 0.2
+	c = 0.1
+
+	Related = np.array(SumOfRelatedVec)
+	NotRelated = np.array(SumOfNotRelatedVec)
+	original = np.array(queryVector)
+
+	newVec = (a * original) + (b * Related/relatedNumber) - (c * NotRelated/relatedNumber)
+	print newVec
+	return newVec
+
+
+def searchBigram(queryTerms, queryID, isFeedBack):
+	print queryTerms
 	rankingList = {}
-	# queryVector = []
+	queryVector = []
+	queryTermsIndex = 0
 	for key, elem in queryTerms.items():
 		if key[0].encode('utf-8') in vocabList:
 			if key[1].encode('utf-8') in vocabList:
@@ -19,7 +59,7 @@ def searchBigram(queryTerms):
 					BM25_K = 2.0
 					SLOPE = 0.75
 					
-					# queryVector.append(elem) # queryVector
+					queryVector.append(elem) # queryVector
 					bigramInDoc = invertedFileDict[invertedIndex]
 					numberOfFile = int(bigramInDoc["numberOfFile"])
 					docs = bigramInDoc["docs"]
@@ -33,20 +73,36 @@ def searchBigram(queryTerms):
 						BIGRAMTF = ( BM25_K + 1 ) * countInDoc / ( countInDoc + BM25_K * ( 1 - SLOPE + SLOPE * len(docs) / avgDoc_len) )
 						if docID not in rankingList:
 							rankingList[docID] = [0] * len(queryTerms)
-						rankingList[docID][key] = float(TF * IDF * elem) 
-	print rankingList 
-	return rankingList
-	# listDocCount = 0
-	# listOfDoc = list(sorted(scoreDict.items(), key=itemgetter(1)))
-	# returnList = []
-	# for index in xrange(len(listOfDoc)-1, 0, -1):
-	# 	listDocCount+=1
-	# 	returnList.append(listOfDoc[index][0]);
-	# 	if listDocCount == 100:
-	# 		break
-	# return returnList
+						rankingList[docID][queryTermsIndex] = float(BIGRAMTF * IDF * elem) 
+					queryTermsIndex += 1
 
-def queryFile(path):
+	if isFeedBack:
+		queryVector = rocchioFeedBack(queryVector, rankingList)
+
+	bestResultList = calculateScoresAndSort(queryVector, rankingList)
+	
+	writeText = queryID + ","
+	for docid in bestResultList:
+		writeText += parseFileList[int(docid)]['id']
+		writeText += ' '
+	writeText += '\n'
+	return writeText
+
+def calculateScoresAndSort(queryvector, rankinglist):
+	scoreDict = {}
+	for docId in rankinglist:
+		scoreDict[docId] = sum([x * y for x, y in zip(queryvector, rankinglist[docId])])
+
+	sortedlistOfDoc = list(sorted(scoreDict.items(), key=itemgetter(1), reverse=True))
+	returnList = []
+	for index in range(len(sortedlistOfDoc)):
+		returnList.append(sortedlistOfDoc[index][0]);
+		if index == 99:
+			break
+	return returnList
+
+def queryFile(path, isFeedBack):
+	writeText = "query_id,retrieved_docs\n"
 	with open(path) as readFile:
 		tree = ET.parse(path)
 		root = tree.getroot()
@@ -74,18 +130,20 @@ def queryFile(path):
 							queryTerms[seg[x] + seg[x+1]] = 1
 						elif seg[x] + seg[x+1] in queryTerms:
 							queryTerms[seg[x] + seg[x+1]] += 1
-			searchBigram(queryTerms)
+			writeText += searchBigram(queryTerms, queryID, isFeedBack)
+	ouputData = open("outputDataTestFeedBack.csv","w")
+	ouputData.write(writeText)
 
 def main():
 	global parseFileList, vocabList, invertedFileDict, avgDoc_len
 	parseFileList = parseXML.readFileList("model")
 	avgDoc_len = parseXML.getAvgDocLength(parseFileList)
 	vocabList = parseXML.readVocab("model")
-	# 
-	# invertedFileDict = parseXML.readInvertedFile("model")
 	# parseXML.saveToPureInvertedFile("model")
 	invertedFileDict = parseXML.parsePureInvertedFile()
-	queryFile("./queries/query-train.xml")
+	# queryFile("./queries/query-train.xml")
+	queryFile("./queries/query-test.xml", True)
+	parser = argparse.ArgumentParser()
 	
 if __name__ == '__main__':
 	main()
