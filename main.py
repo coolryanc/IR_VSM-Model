@@ -101,7 +101,7 @@ def calculateScoresAndSort(queryvector, rankinglist):
 			break
 	return returnList
 
-def queryFile(path, isFeedBack):
+def queryFile(path, isFeedBack, outPutFileName):
 	writeText = "query_id,retrieved_docs\n"
 	with open(path) as readFile:
 		tree = ET.parse(path)
@@ -131,19 +131,24 @@ def queryFile(path, isFeedBack):
 						elif seg[x] + seg[x+1] in queryTerms:
 							queryTerms[seg[x] + seg[x+1]] += 1
 			writeText += searchBigram(queryTerms, queryID, isFeedBack)
-	ouputData = open("outputDataTestFeedBack.csv","w")
+	ouputData = open(outPutFileName,"w")
 	ouputData.write(writeText)
 
 def main():
 	global parseFileList, vocabList, invertedFileDict, avgDoc_len
-	parseFileList = parseXML.readFileList("model")
+	parser = argparse.ArgumentParser(description="Welcome!")
+	parser.add_argument("-r", help="isFeedback", action="store_true", default=False)
+	parser.add_argument("-i", help="Query File", type=str)
+	parser.add_argument("-o", help="Rank List", type=str)
+	parser.add_argument("-m", help="Model Dir", type=str)
+	args = parser.parse_args()
+
+	parseFileList = parseXML.readFileList(args.m)
 	avgDoc_len = parseXML.getAvgDocLength(parseFileList)
-	vocabList = parseXML.readVocab("model")
+	vocabList = parseXML.readVocab(args.m)
 	# parseXML.saveToPureInvertedFile("model")
 	invertedFileDict = parseXML.parsePureInvertedFile()
-	# queryFile("./queries/query-train.xml")
-	queryFile("./queries/query-test.xml", True)
-	parser = argparse.ArgumentParser()
+	queryFile(args.i, args.r, args.o)
 	
 if __name__ == '__main__':
 	main()
